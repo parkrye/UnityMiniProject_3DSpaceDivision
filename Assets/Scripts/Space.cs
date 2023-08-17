@@ -21,19 +21,19 @@ public class Space : MonoBehaviour
         ImpassableSpaces = new List<Space>();
     }
 
-    public int GetNearestPassableSpace(Vector3 targetTransform, List<int> exceptList = null)
+    public int GetNearestPassableSpace(Vector3 targetTransform, List<int> exceptList)
     {
-        int nearestIndex = SpaceIndex;
+        if (PassableSpaces.Count == 0)
+            return -1;
+        int nearestIndex = PassableSpaces[0].SpaceIndex;
         float nearestDistance = float.MaxValue;
 
         for(int i = 0; i < PassableSpaces.Count; i++)
         {
-            if (i == SpaceIndex)
+            if (exceptList.Contains(PassableSpaces[i].SpaceIndex))
                 continue;
-            if (exceptList != null && exceptList.Contains(PassableSpaces[i].SpaceIndex))
-                continue;
-            float distanceDiff = Vector3.SqrMagnitude(targetTransform - PassableSpaces[i].Position);
-            if (distanceDiff > 0.1f && distanceDiff < nearestDistance)
+            float distanceDiff = Vector3.Distance(targetTransform, PassableSpaces[i].Position) + Vector3.Distance(targetTransform, Position);
+            if (distanceDiff < nearestDistance)
             {
                 nearestIndex = PassableSpaces[i].SpaceIndex;
                 nearestDistance = distanceDiff;
@@ -43,19 +43,19 @@ public class Space : MonoBehaviour
         return nearestIndex;
     }
 
-    public int GetNearestImpassableSpace(Vector3 targetTransform, List<int> exceptList = null)
+    public int GetNearestImpassableSpace(Vector3 targetTransform, List<int> exceptList)
     {
-        int nearestIndex = SpaceIndex;
+        if (ImpassableSpaces.Count == 0)
+            return -1;
+        int nearestIndex = ImpassableSpaces[0].SpaceIndex;
         float nearestDistance = float.MaxValue;
 
         for (int i = 0; i < ImpassableSpaces.Count; i++)
         {
-            if (i == SpaceIndex)
+            if (exceptList.Contains(ImpassableSpaces[i].SpaceIndex))
                 continue;
-            if (exceptList != null && exceptList.Contains(ImpassableSpaces[i].SpaceIndex))
-                continue;
-            float distanceDiff = Vector3.SqrMagnitude(targetTransform - ImpassableSpaces[i].Position);
-            if (distanceDiff > 0.1f && distanceDiff < nearestDistance)
+            float distanceDiff = Vector3.Distance(targetTransform, ImpassableSpaces[i].Position) + Vector3.Distance(targetTransform, Position);
+            if (distanceDiff < nearestDistance)
             {
                 nearestIndex = ImpassableSpaces[i].SpaceIndex;
                 nearestDistance = distanceDiff;

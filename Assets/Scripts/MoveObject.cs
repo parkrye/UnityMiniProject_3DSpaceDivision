@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -11,9 +10,28 @@ public class MoveObject : MonoBehaviour
     [SerializeField] MoveObject otherObject;
     [SerializeField] List<int> exceptSpaceIndexList;
 
-    public int PlacedSpaceIndex {  get; private set; }
+    [SerializeField] int placeSpaceindex;
+    public int PlacedSpaceIndex { get { return placeSpaceindex; } set { placeSpaceindex = value; } }
     [SerializeField] bool finding, looking, hiding;
     [SerializeField] Vector3 movePosition;
+
+    public void OnFindButtonClicked()
+    {
+        Idle();
+        state = State.Find;
+    }
+
+    public void OnLookButtonClicked()
+    {
+        Idle();
+        state = State.Look;
+    }
+
+    public void OnHideButtonClicked()
+    {
+        Idle();
+        state = State.Hide;
+    }
 
     void Update()
     {
@@ -45,22 +63,36 @@ public class MoveObject : MonoBehaviour
 
     void Find()
     {
-        if (Vector3.SqrMagnitude(otherObject.transform.position - transform.position) < 1f)
+        if (Vector3.Distance(otherObject.transform.position, transform.position) < 1f)
         {
+            Debug.Log("Find Object");
             state = State.Idle;
             return;
         }
 
         if (!finding)
         {
-            int nearIndex = spaceDivinder.WholeSpaces[otherObject.PlacedSpaceIndex].GetNearestPassableSpace(spaceDivinder.WholeSpaces[PlacedSpaceIndex].Position, exceptSpaceIndexList);
+            int nearIndex = spaceDivinder.WholeSpaces[PlacedSpaceIndex].GetNearestPassableSpace(spaceDivinder.WholeSpaces[otherObject.PlacedSpaceIndex].Position, exceptSpaceIndexList);
+            if (nearIndex < 0)
+            {
+                if (!exceptSpaceIndexList.Contains(PlacedSpaceIndex))
+                    exceptSpaceIndexList.Add(PlacedSpaceIndex);
+                return;
+            }
+            if (!spaceDivinder.WholeSpaces[nearIndex].Usable)
+            {
+                if (!exceptSpaceIndexList.Contains(nearIndex))
+                    exceptSpaceIndexList.Add(nearIndex);
+                return;
+            }
             movePosition = spaceDivinder.WholeSpaces[nearIndex].Position;
-            exceptSpaceIndexList.Add(nearIndex);
+            if(!exceptSpaceIndexList.Contains(nearIndex))
+                exceptSpaceIndexList.Add(nearIndex);
             finding = true;
         }
         else
         {
-            if (Vector3.SqrMagnitude(movePosition - transform.position) < 0.1f)
+            if (Vector3.Distance(otherObject.movePosition, transform.position) < 1f)
             {
                 finding = false;
                 return;
@@ -74,19 +106,30 @@ public class MoveObject : MonoBehaviour
     {
         if (!looking)
         {
-            int nearIndex = spaceDivinder.WholeSpaces[otherObject.PlacedSpaceIndex].GetNearestPassableSpace(spaceDivinder.WholeSpaces[PlacedSpaceIndex].Position, exceptSpaceIndexList);
+            int nearIndex = spaceDivinder.WholeSpaces[PlacedSpaceIndex].GetNearestPassableSpace(spaceDivinder.WholeSpaces[otherObject.PlacedSpaceIndex].Position, exceptSpaceIndexList);
+            if(nearIndex < 0)
+            {
+                if (!exceptSpaceIndexList.Contains(PlacedSpaceIndex))
+                    exceptSpaceIndexList.Add(PlacedSpaceIndex);
+                return;
+            }
             movePosition = spaceDivinder.WholeSpaces[nearIndex].Position;
-            exceptSpaceIndexList.Add(nearIndex);
-            looking = true;
+            if (!exceptSpaceIndexList.Contains(nearIndex))
+                exceptSpaceIndexList.Add(nearIndex);
+            if (!Physics.Raycast(transform.position, (movePosition - transform.position).normalized, Vector3.Distance(movePosition, transform.position), LayerMask.GetMask("Obstacle")))
+                looking = true;
         }
         else
         {
-            if(Vector3.SqrMagnitude(movePosition - transform.position) < 0.1f)
+            if(Vector3.Distance(movePosition, transform.position) < 0.1f)
             {
                 if(Physics.Raycast(transform.position, otherObject.transform.position - transform.position, Vector3.Distance(otherObject.transform.position, transform.position), LayerMask.GetMask("Obstacle")))
                     looking = false;
                 else
+                {
+                    Debug.Log("Look at Object");
                     state = State.Idle;
+                }
                 return;
             }
 
@@ -98,17 +141,28 @@ public class MoveObject : MonoBehaviour
     {
         if (!hiding)
         {
-            int nearIndex = spaceDivinder.WholeSpaces[otherObject.PlacedSpaceIndex].GetNearestImpassableSpace(spaceDivinder.WholeSpaces[PlacedSpaceIndex].Position, exceptSpaceIndexList);
+            int nearIndex = spaceDivinder.WholeSpaces[PlacedSpaceIndex].GetNearestImpassableSpace(spaceDivinder.WholeSpaces[otherObject.PlacedSpaceIndex].Position, exceptSpaceIndexList);
+            if (nearIndex < 0)
+            {
+                if (!exceptSpaceIndexList.Contains(PlacedSpaceIndex))
+                    exceptSpaceIndexList.Add(PlacedSpaceIndex);
+                return;
+            }
             movePosition = spaceDivinder.WholeSpaces[nearIndex].Position;
-            exceptSpaceIndexList.Add(nearIndex);
-            hiding = true;
+            if (!exceptSpaceIndexList.Contains(nearIndex))
+                exceptSpaceIndexList.Add(nearIndex);
+            if (!Physics.Raycast(transform.position, (movePosition - transform.position).normalized, Vector3.Distance(movePosition, transform.position), LayerMask.GetMask("Obstacle")))
+                hiding = true;
         }
         else
         {
-            if (Vector3.SqrMagnitude(movePosition - transform.position) < 0.1f)
+            if (Vector3.Distance(movePosition, transform.position) < 0.1f)
             {
                 if (Physics.Raycast(transform.position, otherObject.transform.position - transform.position, Vector3.Distance(otherObject.transform.position, transform.position), LayerMask.GetMask("Obstacle")))
+                {
+                    Debug.Log("Hide from Object");
                     state = State.Idle;
+                }
                 else
                     hiding = false;
                 return;
