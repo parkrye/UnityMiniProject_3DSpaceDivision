@@ -1,19 +1,22 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class MoveObject : MonoBehaviour
 {
-    enum State { Idle, Find, Look, Hide }
+    enum State { Idle, Find, Look, Hide, SeekAndHideA, SeekAndHideB }
     [SerializeField] State state;
 
-    [SerializeField] SpaceDivinder spaceDivinder;
+    [SerializeField] SpaceManager spaceManager;
     [SerializeField] MoveObject otherObject;
     [SerializeField] List<int> exceptSpaceIndexList;
 
-    [SerializeField] int placeSpaceindex;
+    [SerializeField] int placeSpaceindex, workCount, workLimit;
     public int PlacedSpaceIndex { get { return placeSpaceindex; } set { placeSpaceindex = value; } }
     [SerializeField] bool finding, looking, hiding;
     [SerializeField] Vector3 movePosition;
+    [SerializeField] float speed, movePosMinDiff, movePosMaxDiff;
+    public Vector3 Position { get { return transform.position + Vector3.up; } }
 
     public void OnFindButtonClicked()
     {
@@ -33,6 +36,18 @@ public class MoveObject : MonoBehaviour
         state = State.Hide;
     }
 
+    public void OnSeekAndHideAbuttonClicked()
+    {
+        Idle();
+        state = State.SeekAndHideA;
+    }
+
+    public void OnSeekAndHideBbuttonClicked()
+    {
+        Idle();
+        state = State.SeekAndHideB;
+    }
+
     void Update()
     {
         switch (state)
@@ -50,6 +65,12 @@ public class MoveObject : MonoBehaviour
             case State.Hide:
                 Hide();
                 break;
+            case State.SeekAndHideA:
+                Find(true);
+                break;
+            case State.SeekAndHideB:
+                Hide(true);
+                break;
         }
     }
 
@@ -59,46 +80,70 @@ public class MoveObject : MonoBehaviour
         finding = false;
         looking = false;
         hiding = false;
+        workCount = 0;
+        workLimit = spaceManager.WholeSpaces.Count;
     }
 
-    void Find()
+    void Find(bool isSeekAndHide = false)
     {
-        if (Vector3.Distance(otherObject.transform.position, transform.position) < 1f)
+        if (spaceManager.WholeSpaces[PlacedSpaceIndex].PassableSpaces.Contains(otherObject.PlacedSpaceIndex) && Vector3.Distance(movePosition, Position) <= movePosMaxDiff)
         {
-            Debug.Log("Find Object");
-            state = State.Idle;
+            //Debug.Log("Find Object");
+            if (!isSeekAndHide)
+                state = State.Idle;
+            else
+                workCount = 0;
             return;
         }
 
         if (!finding)
         {
-            int nearIndex = spaceDivinder.WholeSpaces[PlacedSpaceIndex].GetNearestPassableSpace(spaceDivinder.WholeSpaces[otherObject.PlacedSpaceIndex].Position, exceptSpaceIndexList);
-            if (nearIndex < 0)
+            workCount++;
+            if (workCount > workLimit)
             {
-                if (!exceptSpaceIndexList.Contains(PlacedSpaceIndex))
-                    exceptSpaceIndexList.Add(PlacedSpaceIndex);
+                if (!isSeekAndHide)
+                    state = State.Idle;
+                else
+                    workCount = 0;
                 return;
             }
-            if (!spaceDivinder.WholeSpaces[nearIndex].Usable)
+
+            int nearIndex;
+            if (PlacedSpaceIndex == otherObject.PlacedSpaceIndex)
             {
-                if (!exceptSpaceIndexList.Contains(nearIndex))
-                    exceptSpaceIndexList.Add(nearIndex);
-                return;
+                nearIndex = spaceManager.GetNearestSpace(otherObject.PlacedSpaceIndex, spaceManager.WholeSpaces[PlacedSpaceIndex].PassableSpaces, exceptSpaceIndexList);
+                if (nearIndex < 0 || !spaceManager.WholeSpaces[nearIndex].Usable)
+                {
+                    if (!exceptSpaceIndexList.Contains(nearIndex))
+                        exceptSpaceIndexList.Add(nearIndex);
+                    return;
+                }
             }
-            movePosition = spaceDivinder.WholeSpaces[nearIndex].Position;
-            if(!exceptSpaceIndexList.Contains(nearIndex))
+            else
+            {
+                nearIndex = spaceManager.GetNearestSpace(otherObject.PlacedSpaceIndex, spaceManager.GetTwoWaySpaces(PlacedSpaceIndex, otherObject.PlacedSpaceIndex), exceptSpaceIndexList);
+                if (nearIndex < 0 || !spaceManager.WholeSpaces[nearIndex].Usable)
+                {
+                    if (!exceptSpaceIndexList.Contains(nearIndex))
+                        exceptSpaceIndexList.Add(nearIndex);
+                    return;
+                }
+            }
+
+            movePosition = spaceManager.WholeSpaces[nearIndex].Position;
+            if (!exceptSpaceIndexList.Contains(nearIndex))
                 exceptSpaceIndexList.Add(nearIndex);
             finding = true;
         }
         else
         {
-            if (Vector3.Distance(otherObject.movePosition, transform.position) < 1f)
+            if (Vector3.Distance(movePosition, Position) <= movePosMinDiff)
             {
                 finding = false;
                 return;
             }
 
-            transform.Translate((movePosition - transform.position) * Time.deltaTime, UnityEngine.Space.World);
+            transform.Translate(speed * Time.deltaTime * (movePosition - Position).normalized, UnityEngine.Space.World);
         }
     }
 
@@ -106,69 +151,127 @@ public class MoveObject : MonoBehaviour
     {
         if (!looking)
         {
-            int nearIndex = spaceDivinder.WholeSpaces[PlacedSpaceIndex].GetNearestPassableSpace(spaceDivinder.WholeSpaces[otherObject.PlacedSpaceIndex].Position, exceptSpaceIndexList);
-            if(nearIndex < 0)
+            workCount++;
+            if (workCount > workLimit)
             {
-                if (!exceptSpaceIndexList.Contains(PlacedSpaceIndex))
-                    exceptSpaceIndexList.Add(PlacedSpaceIndex);
-                return;
-            }
-            movePosition = spaceDivinder.WholeSpaces[nearIndex].Position;
-            if (!exceptSpaceIndexList.Contains(nearIndex))
-                exceptSpaceIndexList.Add(nearIndex);
-            if (!Physics.Raycast(transform.position, (movePosition - transform.position).normalized, Vector3.Distance(movePosition, transform.position), LayerMask.GetMask("Obstacle")))
-                looking = true;
-        }
-        else
-        {
-            if(Vector3.Distance(movePosition, transform.position) < 0.1f)
-            {
-                if(Physics.Raycast(transform.position, otherObject.transform.position - transform.position, Vector3.Distance(otherObject.transform.position, transform.position), LayerMask.GetMask("Obstacle")))
-                    looking = false;
-                else
-                {
-                    Debug.Log("Look at Object");
-                    state = State.Idle;
-                }
+                state = State.Idle;
                 return;
             }
 
-            transform.Translate((movePosition - transform.position) * Time.deltaTime, UnityEngine.Space.World);
+            int nearIndex;
+            if (PlacedSpaceIndex == otherObject.PlacedSpaceIndex)
+            {
+                nearIndex = spaceManager.GetNearestSpace(PlacedSpaceIndex, spaceManager.WholeSpaces[PlacedSpaceIndex].PassableSpaces, exceptSpaceIndexList);
+                if (nearIndex < 0 || !spaceManager.WholeSpaces[nearIndex].Usable)
+                {
+                    if (!exceptSpaceIndexList.Contains(nearIndex))
+                        exceptSpaceIndexList.Add(nearIndex);
+                    return;
+                }
+            }
+            else
+            {
+                nearIndex = spaceManager.GetNearestSpace(otherObject.PlacedSpaceIndex, spaceManager.GetTwoWaySpaces(PlacedSpaceIndex, otherObject.PlacedSpaceIndex), exceptSpaceIndexList);
+                if (nearIndex < 0 || !spaceManager.WholeSpaces[nearIndex].Usable)
+                {
+                    if (!exceptSpaceIndexList.Contains(nearIndex))
+                        exceptSpaceIndexList.Add(nearIndex);
+                    return;
+                }
+            }
+
+            movePosition = spaceManager.WholeSpaces[nearIndex].Position;
+            if (!exceptSpaceIndexList.Contains(nearIndex))
+                exceptSpaceIndexList.Add(nearIndex);
+            looking = true;
+        }
+
+        else
+        {
+            if (spaceManager.WholeSpaces[PlacedSpaceIndex].ImpassableSpaces.Contains(otherObject.PlacedSpaceIndex))
+            {
+                if (Vector3.Distance(movePosition, Position) < movePosMinDiff)
+                {
+                    looking = false;
+                    return;
+                }
+            }
+            else
+            {
+                //Debug.Log($"{name} Look at Object");
+                //Debug.Log($"{name} Space {PlacedSpaceIndex} and {otherObject.PlacedSpaceIndex} is Passable? : {spaceManager.WholeSpaces[PlacedSpaceIndex].PassableSpaces.Contains(otherObject.placeSpaceindex)}");
+                state = State.Idle;
+                return;
+            }
+
+            transform.Translate(speed * Time.deltaTime * (movePosition - Position).normalized, UnityEngine.Space.World);
         }
     }
 
-    void Hide()
+    void Hide(bool isSeekAndHide = false)
     {
         if (!hiding)
         {
-            int nearIndex = spaceDivinder.WholeSpaces[PlacedSpaceIndex].GetNearestImpassableSpace(spaceDivinder.WholeSpaces[otherObject.PlacedSpaceIndex].Position, exceptSpaceIndexList);
-            if (nearIndex < 0)
+            workCount++;
+            if (workCount > workLimit)
             {
-                if (!exceptSpaceIndexList.Contains(PlacedSpaceIndex))
-                    exceptSpaceIndexList.Add(PlacedSpaceIndex);
-                return;
-            }
-            movePosition = spaceDivinder.WholeSpaces[nearIndex].Position;
-            if (!exceptSpaceIndexList.Contains(nearIndex))
-                exceptSpaceIndexList.Add(nearIndex);
-            if (!Physics.Raycast(transform.position, (movePosition - transform.position).normalized, Vector3.Distance(movePosition, transform.position), LayerMask.GetMask("Obstacle")))
-                hiding = true;
-        }
-        else
-        {
-            if (Vector3.Distance(movePosition, transform.position) < 0.1f)
-            {
-                if (Physics.Raycast(transform.position, otherObject.transform.position - transform.position, Vector3.Distance(otherObject.transform.position, transform.position), LayerMask.GetMask("Obstacle")))
-                {
-                    Debug.Log("Hide from Object");
+                if (!isSeekAndHide)
                     state = State.Idle;
-                }
                 else
-                    hiding = false;
+                    workCount = 0;
                 return;
             }
 
-            transform.Translate((movePosition - transform.position) * Time.deltaTime, UnityEngine.Space.World);
+            int nearIndex;
+            if (PlacedSpaceIndex == otherObject.PlacedSpaceIndex)
+            {
+                nearIndex = spaceManager.GetNearestSpace(PlacedSpaceIndex, spaceManager.WholeSpaces[PlacedSpaceIndex].PassableSpaces, exceptSpaceIndexList);
+                if (nearIndex < 0 || !spaceManager.WholeSpaces[nearIndex].Usable)
+                {
+                    if (!exceptSpaceIndexList.Contains(nearIndex))
+                        exceptSpaceIndexList.Add(nearIndex);
+                    return;
+                }
+            }
+            else
+            {
+                nearIndex = spaceManager.GetNearestSpace(PlacedSpaceIndex, spaceManager.GetOneWaySpaces(PlacedSpaceIndex, otherObject.PlacedSpaceIndex), exceptSpaceIndexList);
+                if (nearIndex < 0 || !spaceManager.WholeSpaces[nearIndex].Usable)
+                {
+                    if (!exceptSpaceIndexList.Contains(nearIndex))
+                        exceptSpaceIndexList.Add(nearIndex);
+                    return;
+                }
+            }
+
+            movePosition = spaceManager.WholeSpaces[nearIndex].Position;
+            if (!exceptSpaceIndexList.Contains(nearIndex))
+                exceptSpaceIndexList.Add(nearIndex);
+            hiding = true;
+        }
+        else
+        {
+            if (spaceManager.WholeSpaces[PlacedSpaceIndex].ImpassableSpaces.Contains(otherObject.PlacedSpaceIndex))
+            {
+                //Debug.Log($"{name} Hide from Object");
+                //Debug.Log($"{name} Space {PlacedSpaceIndex} and {otherObject.PlacedSpaceIndex} is ImPassable? : {spaceManager.WholeSpaces[PlacedSpaceIndex].ImpassableSpaces.Contains(otherObject.placeSpaceindex)}");
+
+                if (!isSeekAndHide)
+                    state = State.Idle;
+                else
+                    workCount = 0;
+                return;
+            }
+            else
+            {
+                if (Vector3.Distance(movePosition, Position) < movePosMinDiff)
+                {
+                    hiding = false;
+                    return;
+                }
+            }
+
+            transform.Translate(speed * Time.deltaTime * (movePosition - Position).normalized, UnityEngine.Space.World);
         }
     }
 
