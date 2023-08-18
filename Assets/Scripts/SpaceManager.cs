@@ -60,6 +60,33 @@ public class SpaceManager : MonoBehaviour
     // i-n-1  i-1   i+n-1
     //  i-n    i     i+n
     // i-n+1  i+1   i+n+1
+    
+    public void SettingRouteWithRayCast()
+    {
+        for (int i = 0; i < WholeSpaces.Count; i++)
+        {
+            if (!WholeSpaces[i].Usable)
+                continue;
+
+            for (int j = i + 1; j < WholeSpaces.Count; j++)
+            {
+                if (!WholeSpaces[j].Usable)
+                    continue;
+
+                if (Physics.Raycast(WholeSpaces[i].Position, (WholeSpaces[j].Position - WholeSpaces[i].Position).normalized, out _, Vector3.Distance(WholeSpaces[j].Position, WholeSpaces[i].Position), LayerMask.GetMask("Obstacle")))
+                {
+                    WholeSpaces[i].ImpassableSpaces.Add(WholeSpaces[j].SpaceIndex);
+                    WholeSpaces[j].ImpassableSpaces.Add(WholeSpaces[i].SpaceIndex);
+                }
+                else
+                {
+                    WholeSpaces[i].PassableSpaces.Add(WholeSpaces[j].SpaceIndex);
+                    WholeSpaces[j].PassableSpaces.Add(WholeSpaces[i].SpaceIndex);
+                }
+            }
+        }
+    }
+
     [Flags] enum Plane 
     { 
         Top = 0b0001,
@@ -72,7 +99,7 @@ public class SpaceManager : MonoBehaviour
         BottomRight = Bottom + Right
     }
 
-    public void SettingRoutes()
+    public void SettingRoutesWitoutRayCast()
     {
         // 인덱스 번호, 상하좌우 면
         List<(int index, Plane plane)> outlineIndexList = new();
@@ -99,25 +126,132 @@ public class SpaceManager : MonoBehaviour
         // 우하
         outlineIndexList.Add((spaceLine * (spaceLine - 1) + spaceLine - 1, Plane.BottomRight));
 
+        // 각 외곽선의 공간 인덱스 리스트에 대하여
         for(int i = 0; i < outlineIndexList.Count; i++)
         {
+            // 기준 행, 열
             int iRow = i / spaceLine;
             int iCol = i % spaceLine;
 
+            // 비교 외곽선의 공간 인덱스 리스트에 대하여
             for (int j = i + 1; j < outlineIndexList.Count; j++)
             {
+                // 동일면이라면 패스
                 if ((outlineIndexList[i].plane & outlineIndexList[j].plane) == 0b0000)
                     continue;
 
+                // 직선 상에 존재하는 공간 인덱스 리스트
+                List<int> indexList = new();
+
+                // 비교 행, 열
                 int jRow = j / spaceLine;
                 int jCol = j % spaceLine;
 
+                // 행, 열 차이
                 int rowDiff = iRow - jRow;
                 int colDiff = iCol - jCol;
 
-                float ascend = colDiff / rowDiff;
+                // 상하 방향. 어디로 가나
+                int rowAbs = rowDiff >= 0 ? 1 : -1;
+                // 좌우 방향. 어디로 가나
+                int colAbs = colDiff >= 0 ? 1 : -1;
 
+                // 상하좌우 이동할 경우
+                if (colDiff != 0 && rowDiff != 0)
+                {
+                    // 상하 방향. 좌/우로 1 갈때 상/하로 몇 가나
+                    float ascend = rowDiff / colDiff;
 
+                    int prevRow = iRow;
+                    int nowRow = iRow;
+
+                    // 기준 공간부터 비교 공간까지의 열을 순회하며
+                    for (int step = 1; step <= colDiff * colAbs; step++)
+                    {
+                        nowRow = Mathf.CeilToInt(prevRow + step * ascend);
+
+                        // 다음 열의 공간은 반드시 직선 상에 있다
+                        int resultIndex = nowRow * spaceLine + iCol + step;
+                        if (resultIndex >= 0 && resultIndex < WholeSpaces.Count)
+                            indexList.Add(resultIndex);
+
+                        // 이전 행과 현재 행이 다르면 상승/하강했으니 상승/하강 공간도 직선 상에 있다
+                        if (nowRow != prevRow)
+                        {
+                            resultIndex = nowRow * spaceLine + iCol + step + rowAbs * spaceLine;
+                            if (resultIndex >= 0 && resultIndex < WholeSpaces.Count)
+                                indexList.Add(resultIndex);
+                        }
+
+                        prevRow = nowRow;
+                    }
+                }
+                // 상하 이동할 경우
+                else if (colDiff != 0 && rowDiff == 0)
+                {
+                    int ascend = rowAbs;
+
+                    // 기준 공간부터 비교 공간까지의 행을 순회하며
+                    for (int step = 1; step <= rowDiff * rowAbs; step++)
+                    {
+                        int resultIndex = (iRow + step * ascend) * spaceLine + iCol;
+                        if (resultIndex >= 0 && resultIndex < WholeSpaces.Count)
+                            indexList.Add(resultIndex);
+                    }
+                }
+                // 좌우 이동할 경우
+                else if (colDiff == 0 && rowDiff != 0)
+                {
+                    int ascend = colAbs;
+
+                    // 기준 공간부터 비교 공간까지의 행을 순회하며
+                    for (int step = 1; step <= colDiff * colAbs; step++)
+                    {
+                        int resultIndex = iRow * spaceLine + iCol + step * colAbs;
+                        if (resultIndex >= 0 && resultIndex < WholeSpaces.Count)
+                            indexList.Add(resultIndex);
+                    }
+                }
+
+                Debug.Log($"{outlineIndexList[i].index} => {outlineIndexList[j].index} : {indexList.Count}");
+
+                // 저장된 공간 리스트에 대하여
+                int blocked = 0;
+                for(int step = 0; step < indexList.Count; step++)
+                {
+                    // 만약 중간에 사용할 수 없는 공간이 있다면
+                    if (!WholeSpaces[indexList[step]].Usable)
+                    {
+                        // 그 이전까지의 공간들은 서로 연결
+                        for(int a = blocked; a < step; a++)
+                        {
+                            for(int b = blocked; b < step; b++)
+                            {
+                                if (a == b)
+                                    continue;
+                                WholeSpaces[indexList[a]].PassableSpaces.Add(indexList[b]);
+                                WholeSpaces[indexList[b]].PassableSpaces.Add(indexList[a]);
+                            }
+                        }
+                        blocked = step + 1;
+                    }
+
+                    // 만약 마지막 공간이 블록되지 않았다면(이전 블록 이후로 계속 연결되어 있었다면)
+                    if(step == indexList.Count - 1 &&  blocked <= indexList.Count)
+                    {
+                        // 나머지 공간도 서로 연결
+                        for (int a = blocked; a <= step; a++)
+                        {
+                            for (int b = blocked; b <= step; b++)
+                            {
+                                if (a == b)
+                                    continue;
+                                WholeSpaces[indexList[a]].PassableSpaces.Add(indexList[b]);
+                                WholeSpaces[indexList[b]].PassableSpaces.Add(indexList[a]);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
