@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -47,6 +48,10 @@ public class SpaceManager : MonoBehaviour
     // hit Space 번호로 브레즌햄
     // 남은 Space는 Impassable
 
+    // 발상 2-1 => raycast 없이
+    // 각 외곽으로부터 다른 외곽 위치로 브레즌햄
+    // space들을 순서대로 순회하며 unsable이 아니라면 정지, 그때까지 spaces들은 서로 passable
+
     // 발상 3. => A* 기반 이동만 가능
     // 인접한 Space가 Usable한지 검사
     // Usable하다면 서로 Passable
@@ -55,12 +60,65 @@ public class SpaceManager : MonoBehaviour
     // i-n-1  i-1   i+n-1
     //  i-n    i     i+n
     // i-n+1  i+1   i+n+1
+    [Flags] enum Plane 
+    { 
+        Top = 0b0001,
+        Bottom = 0b0010,
+        Left = 0b0100,
+        Right = 0b1000,
+        TopLeft = Top + Left,
+        BottomLeft = Bottom + Left,
+        TopRight = Top + Right,
+        BottomRight = Bottom + Right
+    }
 
     public void SettingRoutes()
     {
-        for (int i = 0; i < WholeSpaces.Count; i++)
-        {
+        // 인덱스 번호, 상하좌우 면
+        List<(int index, Plane plane)> outlineIndexList = new();
 
+        // 상
+        for (int i = 1; i < spaceLine - 1; i++)
+            outlineIndexList.Add((i * spaceLine, Plane.Top));
+        // 하
+        for (int i = 1; i < spaceLine - 1; i++)
+            outlineIndexList.Add((i * spaceLine + spaceLine - 1, Plane.Bottom));
+        // 좌
+        for (int i = 1; i < spaceLine - 1; i++)
+            outlineIndexList.Add((i, Plane.Left));
+        // 우
+        for (int i = 1; i < spaceLine - 1; i++)
+            outlineIndexList.Add(((i + 1) * spaceLine - 1, Plane.Right));
+
+        // 좌상
+        outlineIndexList.Add((0, Plane.TopLeft));
+        // 좌하
+        outlineIndexList.Add((spaceLine - 1, Plane.BottomLeft));
+        // 우상
+        outlineIndexList.Add((spaceLine * (spaceLine - 1), Plane.TopRight));
+        // 우하
+        outlineIndexList.Add((spaceLine * (spaceLine - 1) + spaceLine - 1, Plane.BottomRight));
+
+        for(int i = 0; i < outlineIndexList.Count; i++)
+        {
+            int iRow = i / spaceLine;
+            int iCol = i % spaceLine;
+
+            for (int j = i + 1; j < outlineIndexList.Count; j++)
+            {
+                if ((outlineIndexList[i].plane & outlineIndexList[j].plane) == 0b0000)
+                    continue;
+
+                int jRow = j / spaceLine;
+                int jCol = j % spaceLine;
+
+                int rowDiff = iRow - jRow;
+                int colDiff = iCol - jCol;
+
+                float ascend = colDiff / rowDiff;
+
+
+            }
         }
     }
 
