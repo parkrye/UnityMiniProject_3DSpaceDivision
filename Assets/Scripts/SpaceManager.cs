@@ -7,27 +7,22 @@ public class SpaceManager : MonoBehaviour
     public List<Space> WholeSpaces { get { return wholeSpace; } set { wholeSpace = value; } }
 
     [SerializeField][Range(1f, 5f)] float spaceSize;
-    [SerializeField][Range(2, 20)] int spaceLine;
-    [SerializeField] float radius;
+    [SerializeField][Range(2, 30)] int spaceLine;
     [SerializeField] GameObject spacePrefab;
+
+    public int SpaceLine { get { return spaceLine; } }
 
     void Awake()
     {
         WholeSpaces = new List<Space>();
-        SettingSpaces();
     }
 
-    void Start()
-    {
-        SettingRoutes();
-    }
-
-    void SettingSpaces()
+    public void SettingSpaces()
     {
         int index = 0;
-        for (int i = (int)(-spaceLine * 0.5f); i < (int)(spaceLine * 0.5f); i++)
+        for (int i = -spaceLine / 2; i < spaceLine / 2; i++)
         {
-            for (int j = (int)(-spaceLine * 0.5f); j < (int)(spaceLine * 0.5f); j++)
+            for (int j = -spaceLine / 2; j < spaceLine / 2; j++)
             {
                 Space space = Instantiate(spacePrefab, transform).GetComponent<Space>();
                 space.transform.Translate((Vector3.forward * i + Vector3.right * j + Vector3.up * 0.5f) * spaceSize);
@@ -39,40 +34,47 @@ public class SpaceManager : MonoBehaviour
         }
     }
 
+    // 시야를 구현하려면 raycast 필요?
+
     // 발상 1.
     // 각 위치로부터 외곽 지역에 raycast(obstacle)
     // hit1로부터 원 위치로 raycastAll(space)
     // hit2들 사이는 Passable
     // 남은 Space는 Impassable
 
-    // 발상 2.
+    // 발상 2. => 가장 적은 raycast
     // 각 위치로부터 외곽 지역에 raycast(obstacle)
-    // hit Space 번호로 브리즌햄
+    // hit Space 번호로 브레즌햄
     // 남은 Space는 Impassable
 
-    void SettingRoutes()
+    // 발상 3. => A* 기반 이동만 가능
+    // 인접한 Space가 Usable한지 검사
+    // Usable하다면 서로 Passable
+    // 아니라면 서로 Impassable
+
+    // i-n-1  i-1   i+n-1
+    //  i-n    i     i+n
+    // i-n+1  i+1   i+n+1
+
+    public void SettingRoutes()
     {
         for (int i = 0; i < WholeSpaces.Count; i++)
         {
-            if (!WholeSpaces[i].Usable)
-                continue;
 
-            for (int j = i + 1; j < WholeSpaces.Count; j++)
-            {
-                if (!WholeSpaces[j].Usable)
-                    continue;
+        }
+    }
 
-                if (Physics.SphereCast(WholeSpaces[i].Position, radius, (WholeSpaces[j].Position - WholeSpaces[i].Position).normalized, out _, Vector3.Distance(WholeSpaces[j].Position, WholeSpaces[i].Position), LayerMask.GetMask("Obstacle")))
-                {
-                    WholeSpaces[i].ImpassableSpaces.Add(WholeSpaces[j].SpaceIndex);
-                    WholeSpaces[j].ImpassableSpaces.Add(WholeSpaces[i].SpaceIndex);
-                }
-                else
-                {
-                    WholeSpaces[i].PassableSpaces.Add(WholeSpaces[j].SpaceIndex);
-                    WholeSpaces[j].PassableSpaces.Add(WholeSpaces[i].SpaceIndex);
-                }
-            }
+    void AddPassableOrNot(int from, int to)
+    {
+        if (WholeSpaces[from].Usable && WholeSpaces[to].Usable)
+        {
+            WholeSpaces[from].PassableSpaces.Add(WholeSpaces[to].SpaceIndex);
+            WholeSpaces[to].PassableSpaces.Add(WholeSpaces[from].SpaceIndex);
+        }
+        else
+        {
+            WholeSpaces[from].ImpassableSpaces.Add(WholeSpaces[to].SpaceIndex);
+            WholeSpaces[to].ImpassableSpaces.Add(WholeSpaces[from].SpaceIndex);
         }
     }
 
