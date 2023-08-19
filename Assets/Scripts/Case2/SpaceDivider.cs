@@ -32,13 +32,11 @@ namespace Case2
                         space.Initialize(this, size, minimumSize, parentSpace.Depth + 1, parentSpace);
                         if(space.CheckDivide())
                             StartCoroutine(DivideRoutine(space));
-                        if (space.IsLeaf && !space.Passable)
-                            continue;
                         parentSpace.AddChild(space);
-                        yield return null;
                     }
                 }
             }
+            yield return null;
         }
 
         public void OnDrawGizmoButton(int level)

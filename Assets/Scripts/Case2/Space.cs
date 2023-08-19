@@ -9,7 +9,7 @@ namespace Case2
         [SerializeField] Space parentSpace;
         [SerializeField] float size, minSize, colorModifier;
         [SerializeField] int depth;
-        [SerializeField] bool passable;
+        [SerializeField] bool visible;
         [SerializeField] int drawGizmoLevel;
         [SerializeField] Color gizmoColor;
         [SerializeField] SpaceDivider divider;
@@ -21,7 +21,6 @@ namespace Case2
         public bool IsLeaf { get { return childrenSpaces.Count == 0; } }
         public float Size { get { return size; } }
         public int Depth { get { return depth; } }
-        public bool Passable { get { return passable; } }
 
         void Awake()
         {
@@ -47,14 +46,12 @@ namespace Case2
 
         public bool CheckDivide()
         {
-            if (Physics.CheckBox(transform.position, Vector3.one * size * 0.5f, Quaternion.identity, LayerMask.GetMask("Obstacle")))
+            if (Physics.CheckBox(transform.position, 0.5f * size * Vector3.one, Quaternion.identity, LayerMask.GetMask("Obstacle")))
             {
-                passable = false;
                 if (size <= minSize)
                     return false;
                 return true;
             }
-            passable = true;
             return false;
         }
 
