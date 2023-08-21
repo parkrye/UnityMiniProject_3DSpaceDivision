@@ -13,21 +13,24 @@ namespace Case2
         [SerializeField] int drawGizmoLevel;
         [SerializeField] Color gizmoColor;
         [SerializeField] SpaceDivider divider;
+        [SerializeField] bool[] directions; // right, up, foward
 
         public List<Space> Children { get { return childrenSpaces; } } 
         public Space Parent { get { return parentSpace; } }
+        public List<Space> Brothers { get { return Parent.Children; } }
 
         public bool IsRoot { get { return parentSpace == null; } }
         public bool IsLeaf { get { return childrenSpaces.Count == 0; } }
         public float Size { get { return size; } }
         public int Depth { get { return depth; } }
+        public bool[] Direction { get { return directions; } }
 
         void Awake()
         {
             childrenSpaces = new();
         }
 
-        public void Initialize(SpaceDivider spaceDivider, float _size, float _minSize, int _depth, Space _parent = null)
+        public void Initialize(SpaceDivider spaceDivider, float _size, float _minSize, int _depth, Space _parent = null, bool right = false, bool up = false, bool foward = false)
         {
             divider = spaceDivider;
             size = _size;
@@ -37,6 +40,11 @@ namespace Case2
             colorModifier = 1 / Mathf.Log(Depth, 2);
 
             transform.localScale = Vector3.one * _size;
+
+            directions = new bool[3];
+            directions[0] = right;
+            directions[1] = up;
+            directions[2] = foward;
         }
 
         public void AddChild(Space space)
