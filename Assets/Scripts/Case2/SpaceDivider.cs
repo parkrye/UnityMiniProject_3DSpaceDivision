@@ -31,9 +31,11 @@ namespace Case2
                         Space space = Instantiate(spacePrefab, parentSpace.transform.position + (Vector3.right * x + Vector3.up * y + Vector3.forward * z) * size * 0.5f, Quaternion.identity, transform);
                         space.Initialize(this, size, minimumSize, parentSpace.Depth + 1, parentSpace, x == 1, y == 1, z == 1);
                         if (space.CheckDivide())
+                        {
+                            if (size <= minimumSize)
+                                continue;
                             StartCoroutine(DivideRoutine(space));
-                        else if (size <= minimumSize)
-                            continue;
+                        }
                         parentSpace.AddChild(space);
                     }
                 }

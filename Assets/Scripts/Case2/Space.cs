@@ -56,8 +56,6 @@ namespace Case2
         {
             if (Physics.CheckBox(transform.position, 0.5f * size * Vector3.one, Quaternion.identity, LayerMask.GetMask("Obstacle")))
             {
-                if (size <= minSize)
-                    return false;
                 return true;
             }
             return false;
