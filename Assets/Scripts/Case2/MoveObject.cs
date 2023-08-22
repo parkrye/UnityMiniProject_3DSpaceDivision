@@ -2,17 +2,19 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MoveObject : MonoBehaviour
+namespace Case2
 {
-    // Start is called before the first frame update
-    void Start()
+    public class MoveObject : MonoBehaviour
     {
-        
+        [SerializeField] Space curSpace;
+
+        private void OnTriggerEnter(Collider other)
+        {
+            if (other.GetComponent<Space>() != null)
+            {
+                curSpace = other.GetComponent<Space>();
+            }
+        }
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
 }

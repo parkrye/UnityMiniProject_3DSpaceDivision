@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 7590488655108133257}
   - component: {fileID: 1186278574218693972}
   - component: {fileID: 5082179631514595699}
-  - component: {fileID: 6823919112379959893}
+  - component: {fileID: -248682738056195820}
   m_Layer: 2
   m_Name: Space
   m_TagString: Untagged
@@ -57,10 +57,17 @@ MonoBehaviour:
   childrenSpaces: []
   parentSpace: {fileID: 0}
   size: 0
-  minSize: 0
-  passable: 0
+  colorModifier: 0
   depth: 0
---- !u!65 &6823919112379959893
+  visible: 0
+  usable: 0
+  drawGizmoLevel: 0
+  gizmoColor: {r: 0, g: 0, b: 0, a: 0}
+  divider: {fileID: 0}
+  directions: 
+  passable: []
+  imPassable: []
+--- !u!65 &-248682738056195820
 BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
