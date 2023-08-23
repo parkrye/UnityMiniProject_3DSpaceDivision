@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,6 +9,8 @@ namespace Case2
         [SerializeField] SpaceDivider spaceDivider;
         [SerializeField] Space root;
         [SerializeField] List<Space> leaves;
+        [SerializeField] MoveObject red, yellow;
+        [SerializeField] float speed;
 
         public void CreateRoute()
         {
@@ -23,9 +26,9 @@ namespace Case2
             {
                 foreach(Space child in now.Children)
                 {
-                    if (child.IsLeaf && child.Usable && !leaves.Contains(now))
+                    if (child.IsLeaf && child.Usable && !leaves.Contains(child))
                     {
-                        leaves.Add(now);
+                        leaves.Add(child);
                     }
                     else
                     {
@@ -56,6 +59,103 @@ namespace Case2
                     }
                 }
             }
+        }
+    
+        public void FindRoute(bool isRed)
+        {
+            if (isRed)
+            {
+                Space among = FindTwoWayRoute(red.CurSpace, yellow.CurSpace);
+                StartCoroutine(MoveObject(isRed, red.CurSpace, among));
+            }
+            else
+            {
+                Space among = FindTwoWayRoute(yellow.CurSpace, red.CurSpace);
+                StartCoroutine(MoveObject(isRed, yellow.CurSpace, among));
+            }
+        }
+    
+        public void Hideoute(bool isRed)
+        {
+            if (isRed)
+            {
+                Space among = FindOneWayRoute(red.CurSpace, yellow.CurSpace);
+                StartCoroutine(MoveObject(isRed, red.CurSpace, among));
+            }
+            else
+            {
+                Space among = FindOneWayRoute(yellow.CurSpace, red.CurSpace);
+                StartCoroutine(MoveObject(isRed, yellow.CurSpace, among));
+            }
+        }
+
+        IEnumerator MoveObject(bool isRed, params Space[] route)
+        {
+            int step = 0;
+            while (step < route.Length)
+            {
+                if (isRed)
+                {
+                    red.transform.Translate((route[step].transform.position - red.transform.position).normalized * Time.fixedDeltaTime * speed, UnityEngine.Space.World);
+                    red.transform.LookAt((route[step].transform.position));
+                    if (Vector3.Distance(route[step].transform.position, red.transform.position) < 0.2f)
+                    {
+                        step++;
+                    }
+                }
+                else
+                {
+                    yellow.transform.Translate((route[step].transform.position - yellow.transform.position).normalized * Time.fixedDeltaTime * speed, UnityEngine.Space.World);
+                    yellow.transform.LookAt((route[step].transform.position));
+                    if (Vector3.Distance(route[step].transform.position, yellow.transform.position) < 0.2f)
+                    {
+                        step++;
+                    }
+                }
+                yield return new WaitForFixedUpdate();
+            }
+        }
+
+        Space FindOneWayRoute(Space from,  Space to)
+        {
+            float leastDistacne = float.MaxValue;
+            Space result = null;
+
+            for(int i = 0; i < from.Passable.Count; i++)
+            {
+                if (to.ImPassable.Contains(from.Passable[i]))
+                {
+                    float distacne = Vector3.Magnitude(from.Passable[i].transform.position - from.transform.position);
+                    if (distacne < leastDistacne)
+                    {
+                        leastDistacne = distacne;
+                        result = from.Passable[i];
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        Space FindTwoWayRoute(Space from, Space to)
+        {
+            float leastDistacne = float.MaxValue;
+            Space result = null;
+
+            for (int i = 0; i < from.Passable.Count; i++)
+            {
+                if (to.Passable.Contains(from.Passable[i]))
+                {
+                    float distacne = Vector3.Magnitude(from.Passable[i].transform.position - from.transform.position) * 0.1f + Vector3.Magnitude(from.Passable[i].transform.position - to.transform.position) * 0.1f;
+                    if (distacne < leastDistacne)
+                    {
+                        leastDistacne = distacne;
+                        result = from.Passable[i];
+                    }
+                }
+            }
+
+            return result;
         }
     }
 }
